@@ -1,4 +1,4 @@
-# CollabFusion
+# CollabContex
 
 This this the anonymous repository for the WWW 2024 submitted paper **Collaborative Contextualization: Bridging the Gap between
 Collaborative Filtering and Pre-trained Language Model**
@@ -28,7 +28,7 @@ cd data
 python process_data.py
 ```
 
-### 3. Run CollabFusion
+### 3. Run CollabContex
 ```
-python collabfusion.py
+python CollabContex.py
 ```
