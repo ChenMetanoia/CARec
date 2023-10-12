@@ -1,0 +1,54 @@
+# Config file for data processing, specifically designed for the Amazon Electronics dataset.
+
+# Data name and input/output directory configuration.
+data_source: amazon
+data_name: Electronics
+input_data_name_dict:
+  inter: Electronics
+  item: meta_Electronics
+input_dir_dict:
+  inter: Amazon/Reviews
+  item: Amazon/Metadata
+input_file_suffix:
+  inter: .json.gz
+  item: .json.gz
+output_dir: ../dataset
+
+# Mapping between raw data columns and processed data columns for item metadata.
+# Use the format {column_name}:{column_type}, where column_type can be token, float, int, or bool.
+item_meta_data_col:
+  asin: item_id:token
+  title: title
+  brand: brand
+  category: category
+
+# Mapping between raw data columns and processed data columns for interaction data.
+# Use the format {column_name}:{column_type}, where column_type can be token, float, int, or bool.
+inter_data_col:
+  reviewerID: user_id:token
+  asin: item_id:token
+  overall: raings:float
+  unixReviewTime: timestamp:float
+inter_sample_ratio: 0.35
+
+# Data processing configuration.
+seed: 2023
+gpu_id: 3
+task: general
+# plm: instructor: instructor-xl; bert: bert-base-uncased;, bge: bge-base-en-v1.5; sentence_transformers: all-MiniLM-L6-v2; sentence_transformers: all-mpnet-base-v2
+# plm: instructor-xl
+# plm: bert-base-uncased
+# plm: bge-base-en-v1.5
+# plm: all-MiniLM-L6-v2
+plm: all-mpnet-base-v2
+
+user_k_core_threshold: 5
+item_k_core_threshold: 5
+text_feature_list: [title, brand, category]
+cold_ratio: 0.05
+
+# Evaluation arguments.
+eval_args:
+  split: {RS: [0.8, 0.1, 0.1]}
+  group_by: user_id:token
+  order: RO

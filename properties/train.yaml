@@ -1,0 +1,24 @@
+gpu_id: 0                           # (int) GPU ID.
+
+# training config
+train_batch_size: 1024              # (int) Batch size for training.
+training_neg_sample_num: 0
+activation_function: relu           # (str) Activation function.
+reg_weight: 1e-05                   # (float) Weight of regularization.
+require_pow: True                   # (bool) Whether to use pow() to process the embedding.
+learning_rate: 0.001                # (float) Learning rate.
+# loss_type: BPR                      # (str) Loss function type.
+epochs: 200                         # (int) Number of epochs.
+stopping_step: 30                   # (int) Number of epochs for early stopping.
+eval_step: 1                      # (int) Number of epochs for evaluation.
+dropout: 0.5                        # (float) Dropout rate.
+
+# evaluation
+topk: [10, 50]  
+metrics: ['Recall', 'NDCG']  # (list) Metric names for evaluation.
+valid_metric: NDCG@10                # (str) Metric name for validation.
+valid_metric_bigger: True           # (bool) Whether the validation metric is bigger the better.
+
+eval_neg_sample_args:
+    distribution: uniform
+    sample_num: ~
