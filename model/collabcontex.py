@@ -16,7 +16,6 @@ class CollabContex(GeneralRecommender):
 
     def __init__(self, config, dataset):
         super().__init__(config, dataset)
-
         # load parameters info
         self.gamma = 1
         self.encoder_name = config['encoder']
@@ -33,16 +32,26 @@ class CollabContex(GeneralRecommender):
     def set_item_tutoring_phase(self):
         self.calculate_item_uniformity = False
         self.calculate_user_uniformity = True
-        self.encoder.not_apply_cca = True
+        self.encoder.not_apply_mlp = True
         self.restore_item_e = None
         self.restore_user_e = None
+        # make sure the mlps are not updated
+        for param in self.encoder.mlp.parameters():
+            param.requires_grad = False
+        # make sure the user embedding is updated
+        self.encoder.user_embedding.weight.requires_grad = True
     
     def set_user_tutoring_phase(self):
         self.calculate_item_uniformity = True
         self.calculate_user_uniformity = False
-        self.encoder.not_apply_cca = False
+        self.encoder.not_apply_mlp = False
         self.restore_item_e = None
         self.restore_user_e = None
+        # make sure the mlps are updated
+        for param in self.encoder.mlp.parameters():
+            param.requires_grad = True
+        # make sure the user embedding is not updated
+        self.encoder.user_embedding.weight.requires_grad = False
         
     def forward(self, user, item):
         user_e, item_e = self.encoder(user, item)
@@ -59,14 +68,17 @@ class CollabContex(GeneralRecommender):
     def calculate_loss(self, interaction):
         if self.restore_user_e is not None or self.restore_item_e is not None:
             self.restore_user_e, self.restore_item_e = None, None
-
         user = interaction[self.USER_ID]
         item = interaction[self.ITEM_ID]
 
         user_e, item_e = self.forward(user, item)
         align = self.alignment(user_e, item_e)
-        item_uniform = None
-        user_uniform = None
+        
+        item_uniform = torch.tensor(0.0, device=user_e.device)
+        user_uniform = torch.tensor(0.0, device=user_e.device)
+        
+        divisor = 0
+
         if self.calculate_item_uniformity:
             # get unique set of item
             item, item_idx = np.unique(item.cpu().numpy(), return_index=True)
@@ -74,6 +86,7 @@ class CollabContex(GeneralRecommender):
             item_e_set = item_e[item_idx]
             # item uniformity loss
             item_uniform = self.gamma * self.uniformity(item_e_set)
+            divisor += 1
         if self.calculate_user_uniformity:
             # get unique set of user
             user, user_idx = np.unique(user.cpu().numpy(), return_index=True)
@@ -81,13 +94,14 @@ class CollabContex(GeneralRecommender):
             user_e_set = user_e[user_idx]
             # user uniformity loss
             user_uniform = self.gamma * self.uniformity(user_e_set)
-        if item_uniform is None and user_uniform is not None:
-            return align + user_uniform
-        elif item_uniform is not None and user_uniform is None:
-            return align + item_uniform
+            divisor += 1
+
+        if divisor == 0:
+            return align
+        elif divisor == 1:
+            return align + item_uniform + user_uniform
         else:
-            unifrom = (item_uniform + user_uniform) / 2
-            return align + unifrom
+            return align + (item_uniform + user_uniform) / 2
         
     def predict(self, interaction):
         user = interaction[self.USER_ID]
@@ -100,11 +114,8 @@ class CollabContex(GeneralRecommender):
         user = interaction[self.USER_ID]
         if self.restore_user_e is None or self.restore_item_e is None:
             self.restore_user_e, self.restore_item_e = self.encoder.get_all_embeddings()
-            user_e = self.restore_user_e[user]
-            all_item_e = self.restore_item_e
-        else:
-            user_e = self.encoder.user_embedding(user)
-            all_item_e = self.encoder.item_embedding
+        user_e = self.restore_user_e[user]
+        all_item_e = self.restore_item_e
         score = torch.matmul(user_e, all_item_e.transpose(0, 1))
         return score.view(-1)
     
@@ -122,10 +133,10 @@ class LGCNEncoder(nn.Module):
         self.gcn_conv = LightGCNConv(dim=self.latent_dim)
         
         self.not_apply_mlp = True
-        self.cca = CollabrativeContextualizationAdapter(
-            config['cca']['input_dim'], config['cca']['hidden_dims'], 
-            config['cca']['output_dim'], config['cca']['num_layers'],
-            config['cca']['dropout'])
+        self.mlp = MLP(
+            config['mlp']['input_dim'], config['mlp']['hidden_dims'], 
+            config['mlp']['output_dim'], config['mlp']['num_layers'],
+            config['mlp']['dropout'])
         self.device = device
         self.item_embedding = dataset.item_feat.item_emb.to(device)
         self.latent_dim = dataset.item_feat.item_emb.shape[1]
@@ -140,7 +151,7 @@ class LGCNEncoder(nn.Module):
         if self.not_apply_mlp:
             item_embeddings = self.item_embedding
         else:
-            item_embeddings = self.cca(self.item_embedding)
+            item_embeddings = self.mlp(self.item_embedding)
         ego_embeddings = torch.cat([user_embeddings, item_embeddings], dim=0)
         return ego_embeddings
 
@@ -188,7 +199,7 @@ class LGCNEncoder(nn.Module):
         return edge_index.to(device), edge_weight.to(device)
     
     
-class CollabrativeContextualizationAdapter(nn.Module):
+class MLP(nn.Module):
     def __init__(self, input_dim, hidden_dims, output_dim, num_layers, dropout=0.2):
         super().__init__()
         
@@ -210,8 +221,8 @@ class CollabrativeContextualizationAdapter(nn.Module):
         layers.append(nn.Linear(hidden_dims[-1], output_dim))
         
         # Combine all layers into a sequential module
-        self.cca = nn.Sequential(*layers)
+        self.mlp = nn.Sequential(*layers)
         self.apply(xavier_normal_initialization)
     
     def forward(self, x):
-        return self.cca(x)
+        return self.mlp(x)

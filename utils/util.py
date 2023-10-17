@@ -376,9 +376,6 @@ def save_split_dataloaders(config, dataloaders):
         config (Config): An instance object of Config, used to record parameter information.
         dataloaders (tuple of AbstractDataLoader): The split dataloaders.
     """
-    # ensure_dir(config["checkpoint_dir"])
-    # save_path = config["checkpoint_dir"]
-    # saved_dataloaders_file = f'{config["dataset"]}-for-{config["model"]}-dataloader.pth'
     file_path = config['dataloaders_save_path']
     logger = getLogger()
     logger.info(set_color("Saving split dataloaders into", "pink") + f": [{file_path}]")
@@ -393,51 +390,94 @@ def save_split_dataloaders(config, dataloaders):
         pickle.dump(Serialization_dataloaders, f)
         
     
-def evaluate_cold_item(
-    trainer, eval_data, load_best_model=True, model_file=None, show_progress=False
-    ):
-    # generate mask for cold item
-    id_tensor = eval_data.dataset.inter_feat['item_id'].unique()
-    mask = torch.ones(eval_data.dataset.item_num).bool()
-    mask[id_tensor] = False
-    if load_best_model:
-        checkpoint_file = model_file or trainer.saved_model_file
-        checkpoint = torch.load(checkpoint_file, map_location=trainer.device)
-        trainer.model.load_state_dict(checkpoint["state_dict"])
-        trainer.model.load_other_parameter(checkpoint.get("other_parameter"))
-        message_output = "Loading model structure and parameters from {}".format(
-            checkpoint_file
-        )
-        trainer.logger.info(message_output)
+class ColdEvaluator(object):
+    """ Cold Evaluator for cold start item recommendation.
+    """
+    def __init__(self, trainer, load_best_model=True, model_file=None, show_progress=False):
+        self.trainer = self._init_trainer(trainer, load_best_model, model_file)
+        self.mask = None
+        self.iter_data = None
+        self.cold_item_map_dict = None
+        self.laten_dim = self.trainer.config['embedding_size']
+        self.show_progress = show_progress
         
-    trainer.model.eval()
-    
-    iter_data = (
-        tqdm(
-            eval_data,
-            total=len(eval_data),
-            ncols=100,
-            desc=set_color(f"Evaluate   ", "pink"),
-        )
-        if show_progress
-        else eval_data
-    )
-
-    num_sample = 0
-    for batch_idx, batched_data in enumerate(iter_data):
-        num_sample += len(batched_data)
-        interaction, scores, positive_u, positive_i = eval_cold_func(trainer, batched_data, mask)
-        if trainer.gpu_available and show_progress:
-            iter_data.set_postfix_str(
-                set_color("GPU RAM: " + get_gpu_usage(trainer.device), "yellow")
+    def _init_trainer(self, trainer, load_best_model, model_file):
+        if load_best_model:
+            checkpoint_file = model_file or trainer.saved_model_file
+            checkpoint = torch.load(checkpoint_file, map_location=trainer.device)
+            trainer.model.load_state_dict(checkpoint["state_dict"])
+            trainer.model.load_other_parameter(checkpoint.get("other_parameter"))
+            message_output = "Loading model structure and parameters from {}".format(
+                checkpoint_file
             )
-        trainer.eval_collector.eval_batch_collect(
-            scores, interaction, positive_u, positive_i
+            trainer.logger.info(message_output)
+        trainer.model.eval()
+        return trainer
+    
+    def get_mask(self, eval_data):
+        id_tensor = eval_data.dataset.inter_feat['item_id'].unique()
+        mask = torch.ones(eval_data.dataset.item_num).bool()
+        mask[id_tensor] = False
+        return mask
+    
+    def generate_iter_data(self, eval_data):
+        iter_data = (
+            tqdm(
+                eval_data,
+                total=len(eval_data),
+                ncols=100,
+                desc=set_color(f"Evaluate   ", "pink"),
+            )
+            if self.show_progress
+            else eval_data
         )
-    trainer.eval_collector.model_collect(trainer.model)
-    struct = trainer.eval_collector.get_data_struct()
-    result = trainer.evaluator.evaluate(struct)
-    if not trainer.config["single_spec"]:
-        result = trainer._map_reduce(result, num_sample)
-    trainer.wandblogger.log_eval_metrics(result, head="eval")
-    return result
+        self.tot_item_num = eval_data.dataset.item_num
+        return iter_data
+    
+    def evaluate_cold_item(self, cold_data, comparewith='item_emb', load_best_model=True, model_file=None, agg_neighbor=True):
+        self.mask = self.get_mask(cold_data)
+        self.iter_data = self.generate_iter_data(cold_data)
+        return self.evaluate(self.trainer, self.iter_data, self.mask, agg_neighbor)
+    
+    def evaluate(self, trainer, iter_data, mask, agg_neighbor=True):
+        num_sample = 0
+        show_progress = self.show_progress
+        trainer.model.restore_item_e = None
+        trainer.model.restore_user_e = None
+        for batch_idx, batched_data in enumerate(iter_data):
+            num_sample += len(batched_data)
+            interaction, scores, positive_u, positive_i = self.eval_func(trainer, batched_data, mask, agg_neighbor)
+            if trainer.gpu_available and show_progress:
+                iter_data.set_postfix_str(
+                    set_color("GPU RAM: " + get_gpu_usage(trainer.device), "yellow")
+                )
+            trainer.eval_collector.eval_batch_collect(
+                scores, interaction, positive_u, positive_i
+            )
+        trainer.eval_collector.model_collect(trainer.model)
+        struct = trainer.eval_collector.get_data_struct()
+        result = trainer.evaluator.evaluate(struct)
+        if not trainer.config["single_spec"]:
+            result = trainer._map_reduce(result, num_sample)
+        trainer.wandblogger.log_eval_metrics(result, head="eval")
+        return result
+    
+    def eval_func(self, trainer, batched_data, mask, agg_neighbor=True):
+        interaction, history_index, positive_u, positive_i = batched_data
+        try:
+            scores = trainer.model.full_sort_predict(interaction.to(trainer.device))
+        except NotImplementedError:
+            inter_len = len(interaction)
+            new_inter = interaction.to(trainer.device).repeat_interleave(self.tot_item_num)
+            batch_size = len(new_inter)
+            new_inter.update(trainer.item_tensor.repeat(inter_len))
+            if batch_size <= trainer.test_batch_size:
+                scores = trainer.model.predict(new_inter)
+            else:
+                scores = trainer._spilt_predict(new_inter, batch_size)
+        scores[mask] = -np.inf
+        scores = scores.view(-1, self.tot_item_num)
+        scores[:, 0] = -np.inf
+        if history_index is not None:
+            scores[history_index] = -np.inf
+        return interaction, scores, positive_u, positive_i

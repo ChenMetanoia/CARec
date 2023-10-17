@@ -5,9 +5,9 @@ from recbole.config import Config
 from recbole.data.utils import create_dataset
 from recbole.utils import init_seed, ensure_dir
 from recbole.trainer import Trainer
-from github.CollabFusion.model.collabcontex import CollabContex
+from model.collabcontex import CollabContex
 from utils.logger import init_logger
-from utils.util import data_preparation, evaluate_cold_item
+from utils.util import data_preparation, ColdEvaluator
 
 def set_up_config(args):
     config_dict = vars(args)
@@ -18,11 +18,11 @@ def set_up_config(args):
     else:
         raise NotImplementedError
 
-    config_dict['cca'] = {
+    config_dict['mlp'] = {
         'input_dim': item_embedding_dim,
         'hidden_dims': [item_embedding_dim, item_embedding_dim],
         'output_dim': item_embedding_dim,
-        'num_layers': 1,
+        'num_layers': 2,
         'dropout': 0.2
     }
     
@@ -59,12 +59,13 @@ def initialize_model_and_trainer(config_dict):
     
     trainer = Trainer(config, model)
     
-    return trainer, train_data, valid_data, test_data, cold_data
+    return trainer, config, logger, train_data, valid_data, test_data, cold_data
 
-def run_evaluation_phases(trainer, config, train_data, valid_data, test_data, cold_data):
+def run_evaluation_phases(trainer, config, logger, train_data, valid_data, test_data, cold_data):
     # Item Tutoring Phase
     print('Item Tutoring Phase')
     trainer.model.set_item_tutoring_phase()
+    trainer.cur_step = 0 # reset cur_step
     best_valid_score, _ = trainer.fit(train_data, valid_data, show_progress=False)
     
     # load best model
@@ -76,18 +77,21 @@ def run_evaluation_phases(trainer, config, train_data, valid_data, test_data, co
     # User Tutoring Phase
     print('User Tutoring Phase')
     trainer.model.set_user_tutoring_phase()
+    trainer.cur_step = 0 # reset cur_step
     best_valid_score, _ = trainer.fit(train_data, valid_data, show_progress=False)
     
     # Evaluation
     # Warm
+    trainer.model.encoder.not_apply_mlp = False
     test_result = trainer.evaluate(test_data)
-    print('warm results:\n', test_result)
+    logger.info(f'warm results: {test_result}')
     
     # Cold
     if 'cold' in config['benchmark_filename']:
-        cold_test_result = evaluate_cold_item(trainer, cold_data)
-        print('item cold start evaluation')
-        print('cold results:', cold_test_result)
+        trainer.model.encoder.not_apply_mlp = True
+        cold_evaluator = ColdEvaluator(trainer)
+        cold_test_result = cold_evaluator.evaluate_cold_item(cold_data, comparewith='item_emb', agg_neighbor=False)
+        logger.info(f'cold results: {cold_test_result}')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -99,6 +103,6 @@ if __name__ == '__main__':
     
     config_dict = set_up_config(args)
     
-    trainer, config, train_data, valid_data, test_data, cold_data = initialize_model_and_trainer(config_dict)
+    trainer, config, logger, train_data, valid_data, test_data, cold_data = initialize_model_and_trainer(config_dict)
     
-    run_evaluation_phases(trainer, config, train_data, valid_data, test_data, cold_data)
+    run_evaluation_phases(trainer, config, logger, train_data, valid_data, test_data, cold_data)
