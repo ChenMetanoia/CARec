@@ -1,4 +1,4 @@
-# CollabAlignment
+# CARec
 
 This this the anonymous repository for the submitted paper **Collaborative Alignment for Recommendation**
 
@@ -27,7 +27,7 @@ cd data
 python process_data.py
 ```
 
-### 3. Run CollabAlignment
+### 3. Run CARec
 ```
 python CollabContex.py
 ```
