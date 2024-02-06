@@ -1,7 +1,6 @@
-# CollabAlginment
+# CollabAlignment
 
-This this the anonymous repository for the KDD 2024 submitted paper **Collaborative Contextualization: Bridging the Gap between
-Collaborative Filtering and Pre-trained Language Model**
+This this the anonymous repository for the KDD 2024 submitted paper **Collaborative Alignment for Recommendation**
 
 ## Requirements
 
@@ -28,7 +27,7 @@ cd data
 python process_data.py
 ```
 
-### 3. Run CollabContex
+### 3. Run CollabAlignment
 ```
 python CollabContex.py
 ```
