@@ -1,6 +1,6 @@
 # CollabAlignment
 
-This this the anonymous repository for the KDD 2024 submitted paper **Collaborative Alignment for Recommendation**
+This this the anonymous repository for the submitted paper **Collaborative Alignment for Recommendation**
 
 ## Requirements
 
