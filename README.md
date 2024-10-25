@@ -64,3 +64,14 @@ python process_data.py
 ```
 python CollabContex.py
 ```
+
+### 4. If you think this paper is useful please consider cite:
+```
+@inproceedings{wang2024collaborative,
+  title={Collaborative Alignment for Recommendation},
+  author={Wang, Chen and Yang, Liangwei and Liu, Zhiwei and Liu, Xiaolong and Yang, Mingdai and Liang, Yueqing and Yu, Philip S},
+  booktitle={Proceedings of the 33rd ACM International Conference on Information and Knowledge Management},
+  pages={2315--2325},
+  year={2024}
+}
+```
