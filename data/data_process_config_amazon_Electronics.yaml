@@ -39,8 +39,8 @@ task: general
 # plm: instructor-xl
 # plm: bert-base-uncased
 # plm: bge-base-en-v1.5
-# plm: all-MiniLM-L6-v2
-plm: all-mpnet-base-v2
+plm: all-MiniLM-L6-v2
+# plm: all-mpnet-base-v2
 
 user_k_core_threshold: 5
 item_k_core_threshold: 5
