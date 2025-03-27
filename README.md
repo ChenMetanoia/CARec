@@ -60,7 +60,7 @@ python process_data.py
 
 ### 3. Run CARec
 ```
-python CollabContex.py
+python run_collabcontex.py
 ```
 
 ### 4. If you think this paper is useful please consider cite:
