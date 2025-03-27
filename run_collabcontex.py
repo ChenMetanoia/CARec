@@ -69,7 +69,10 @@ def run_evaluation_phases(trainer, config, logger, train_data, valid_data, test_
     best_valid_score, _ = trainer.fit(train_data, valid_data, show_progress=False)
     
     # load best model
-    checkpoint = torch.load(trainer.saved_model_file, map_location=trainer.device)
+    checkpoint = torch.load(trainer.saved_model_file, 
+                        map_location=lambda storage, 
+                        loc: storage.cuda() if torch.cuda.is_available() else storage)
+    trainer.model.load_state_dict(checkpoint["state_dict"])
     trainer.model.load_state_dict(checkpoint["state_dict"])
     trainer.model.load_other_parameter(checkpoint.get("other_parameter"))
     print('load model from', trainer.saved_model_file)
