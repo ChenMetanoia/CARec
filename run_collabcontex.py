@@ -11,9 +11,9 @@ from utils.util import data_preparation, ColdEvaluator
 
 def set_up_config(args):
     config_dict = vars(args)
-    if args.PLM in ('instructor-xl', 'bert-base-uncased', 'bge-base-en-v1.5'):
+    if args.PLM in ('instructor-xl', 'bert-base-uncased', 'bge-base-en-v1.5', 'all-mpnet-base-v2'):
         item_embedding_dim = 768
-    elif args.PLM in ('all-MiniLM-L6-v2', 'all-mpnet-base-v2'):
+    elif args.PLM in ('all-MiniLM-L6-v2'):
         item_embedding_dim = 384
     else:
         raise NotImplementedError
@@ -98,7 +98,7 @@ if __name__ == '__main__':
     parser.add_argument('--gpu_id', type=int, help='GPU ID')
     parser.add_argument('--dataset', default='Electronics', type=str, help='[Electronics, Office_Products, Grocery_and_Gourmet_Food]')
     parser.add_argument('--num_layers', default=2, type=int, help='number of layers')
-    parser.add_argument('--PLM', default='all-mpnet-base-v2', help='[all-mpnet-base-v2, all-MiniLM-L6-v2, bert-base-uncased, bge-base-en-v1.5, instructor-xl]')
+    parser.add_argument('--PLM', default='all-MiniLM-L6-v2', help='[all-mpnet-base-v2, all-MiniLM-L6-v2, bert-base-uncased, bge-base-en-v1.5, instructor-xl]')
     args = parser.parse_args()
     
     config_dict = set_up_config(args)
