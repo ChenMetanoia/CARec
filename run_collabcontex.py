@@ -98,7 +98,7 @@ if __name__ == '__main__':
     parser.add_argument('--gpu_id', type=int, help='GPU ID')
     parser.add_argument('--dataset', default='Electronics', type=str, help='[Electronics, Office_Products, Grocery_and_Gourmet_Food]')
     parser.add_argument('--num_layers', default=2, type=int, help='number of layers')
-    parser.add_argument('--PLM', default='instructor-xl', help='[all-mpnet-base-v2, all-MiniLM-L6-v2, bert-base-uncased, bge-base-en-v1.5, instructor-xl]')
+    parser.add_argument('--PLM', default='all-mpnet-base-v2', help='[all-mpnet-base-v2, all-MiniLM-L6-v2, bert-base-uncased, bge-base-en-v1.5, instructor-xl]')
     args = parser.parse_args()
     
     config_dict = set_up_config(args)
