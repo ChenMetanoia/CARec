@@ -63,7 +63,7 @@ python process_data.py
 python run_collabcontex.py
 ```
 
-#### Using Specific GPU to run
+#### 3.1 Using Specific GPU to run
 For example, using gpu 1 instead of 0.
 ```
 CUDA_VISIBLE_DEVICES=1 python run_collabcontex.py
