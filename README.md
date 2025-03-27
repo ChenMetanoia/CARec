@@ -18,8 +18,8 @@ Category: Electronics, Office Products, Grocery and Gourmet Food
 
 Data: metadata
 
-Put meta dataset into ```data/Amazon/metadata``` directory. For example ```data/Amazon/metadata/meta_Electronics.json.gz```
-Put reviews dataset into ```data/Amazon/metadata``` directory. For example ```data/Amazon/metadata/Electronics.json.gz```
+Put meta dataset into ```data/Amazon/Metadata``` directory. For example ```data/Amazon/Metadata/meta_Electronics.json.gz```
+Put reviews dataset into ```data/Amazon/Reviews``` directory. For example ```data/Amazon/Reviews/Electronics.json.gz```
 
 ### 2. Process data
 ```
