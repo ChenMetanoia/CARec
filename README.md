@@ -1,7 +1,5 @@
 # CARec
 
-# CARec
-
 This this the repository for the paper [**Collaborative Alignment for Recommendation**](https://dl.acm.org/doi/abs/10.1145/3627673.3679535)
 
 ## Requirements
