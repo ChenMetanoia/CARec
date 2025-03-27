@@ -69,6 +69,25 @@ For example, using gpu 1 instead of 0.
 CUDA_VISIBLE_DEVICES=1 python run_collabcontex.py
 ```
 
+#### 3.2 ⚠️ If You See This Error When Loading Checkpoints:
+```
+RuntimeError: Attempting to deserialize object on CUDA device 0 but torch.cuda.device_count() is 0.
+Please use torch.load with map_location to map your storages to an existing device.
+```
+Please go to:
+```
+recbole/trainer/trainer.py
+```
+And replace:
+```
+checkpoint = torch.load(resume_file, map_location=self.device)
+```
+With:
+```
+checkpoint = torch.load(resume_file, map_location=lambda storage, loc: storage.cuda() if torch.cuda.is_available() else storage)
+```
+This ensures compatibility when loading checkpoints across different devices or environments.
+
 ### 4. If you think this paper is useful please consider cite:
 ```
 @inproceedings{wang2024collaborative,
